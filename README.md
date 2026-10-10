@@ -12,19 +12,32 @@ Measured and reduced interactive startup of `pi` 1.1.0 (Node 24.18, herdr 0.9.3 
 Time-to-interactive = process start → `interactiveMode.init()` done (first full frame, input bound),
 measured in a pty that answers terminal queries like kitty (`bench/startup.py`).
 
+## Layout
+
+opip is a local pi package (`packages: ["../../Projects/opip"]` in `~/.pi/agent/settings.json`):
+
+| path | what |
+|---|---|
+| `extensions/cliproxy.ts`, `src/cliproxy/` | CLIProxyAPI provider (moved from `~/Projects/pi-cliproxy`) |
+| `extensions/herdr-agent-state.ts` | herdr agent-state reporter (opip-owned copy of herdr's integration) |
+| `test/` | provider tests (`npm test`, `npm run typecheck`) |
+| `bench/` | startup benchmark + profiling tools |
+| `docs/` | findings / upstream reports |
+
+herdr's managed `~/.pi/agent/extensions/herdr-agent-state.ts` is left stock and excluded with
+`"extensions": ["-extensions/herdr-agent-state.ts"]`, so herdr reinstalls/updates can't undo the fix.
+If herdr ships a newer integration (check `HERDR_INTEGRATION_VERSION`), diff it against ours.
+
 ## What was slow and what changed
 
-1. **herdr integration blocked startup ~100 ms** (`~/.pi/agent/extensions/herdr-agent-state.ts`).
-   Its `session_start` handler `await`s a herdr socket request, and Pi waits for `session_start`
-   handlers before the first interactive frame. herdr 0.9.3 answers any request whose bytes arrive
-   *after* `accept()` on a ~100 ms poll tick (see `docs/herdr-100ms-reply.md`), so every start stalled.
-   Fix: report asynchronously, keeping order (session report → state).
-   The file is managed by herdr and gets overwritten on reinstall/update — re-apply with:
-   `node patches/herdr-nonblocking-session-start.mjs` (idempotent).
+1. **herdr integration blocked startup ~100 ms.** Its `session_start` handler `await`s a herdr
+   socket request, and Pi waits for `session_start` handlers before the first interactive frame.
+   herdr 0.9.3 answers any request whose bytes arrive *after* `accept()` on a ~100 ms poll tick
+   (see `docs/herdr-100ms-reply.md`), so most starts stalled. opip's copy reports asynchronously,
+   keeping order (session report → state).
 
-2. **pi-cliproxy rescanned every model catalog for every CPA model** (~14 ms × 2 per start).
-   Replaced the linear scans with a lookup table built once; output byte-identical.
-   Committed in `~/Projects/pi-cliproxy` (`9d725d4`).
+2. **cliproxy provider rescanned every model catalog for every CPA model** (~14 ms × 2 per start).
+   Replaced the linear scans with a lookup table built once; output byte-identical to the original.
 
 ## Where the remaining ~260 ms goes
 
@@ -50,7 +63,7 @@ which makes resuming those specific sessions slow.
 ## Bench tools
 
 ```sh
-bench/startup.py 15 --quiet                         # TTI + wall, kitty-like pty
+npm run bench                                       # TTI + wall, kitty-like pty (bench/startup.py)
 PI_BIN="node --cpu-prof --cpu-prof-dir=/tmp/p --cpu-prof-interval 100 $(readlink -f $(which pi))" bench/startup.py 1
 node bench/buckets.mjs /tmp/p/*.cpuprofile 10       # what ran in each 10 ms slice
 node bench/timeline.mjs /tmp/p/*.cpuprofile         # idle gaps + stack before/after

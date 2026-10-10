@@ -1,0 +1,27 @@
+{
+  "name": "opip",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal pi setup tuned for speed: extensions, startup benchmarks, findings.",
+  "type": "module",
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": ["./extensions/cliproxy.ts", "./extensions/herdr-agent-state.ts"]
+  },
+  "scripts": {
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "bench": "python3 bench/startup.py 15 --quiet"
+  },
+  "engines": { "node": ">=22.19.0" },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "0.87.1",
+    "@earendil-works/pi-coding-agent": "0.87.1",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3"
+  }
+}
